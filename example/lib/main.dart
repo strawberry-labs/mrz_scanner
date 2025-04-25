@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 // Use the main library export
 import 'package:mrz_scanner/mrz_scanner.dart';
+import 'dart:convert'; // For jsonDecode
+import 'package:flutter/services.dart'; // For Clipboard
+import 'package:clipboard/clipboard.dart'; // For FlutterClipboard
 
 void main() {
   runApp(const MyApp());
@@ -50,11 +53,30 @@ class _MyHomePageState extends State<MyHomePage> {
 
       setState(() {
         if (result != null) {
-          // Assuming the helper returns the processed result directly
-          // You might need to adjust how you display this based on what 'result' contains
+          // Assign the result
           _scanResult = result;
           _errorMessage = null;
           debugPrint('Scanner Result: $result');
+
+          // Automatically copy the raw result string to clipboard
+          FlutterClipboard.copy(result)
+              .then((value) {
+                // Use context safely after async gap
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Scan result copied to clipboard'),
+                    ),
+                  );
+                }
+              })
+              .catchError((error) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to auto-copy: $error')),
+                  );
+                }
+              });
         } else {
           // Handle case where the scanner was dismissed or returned null
           _scanResult = null;
@@ -102,13 +124,13 @@ class _MyHomePageState extends State<MyHomePage> {
                         : const Text('Open MRZ Scanner'),
               ),
               const SizedBox(height: 20),
-              // Display the result (converting to string for display)
+              // Display the result and add copy button
               if (_scanResult != null)
                 Expanded(
                   child: SingleChildScrollView(
                     child: Text(
-                      'Scan Result:\n${_scanResult.toString()}', // Display result object as string
-                      textAlign: TextAlign.center,
+                      'Scan Result:\n${_scanResult.toString()}', // Display raw result string
+                      textAlign: TextAlign.left,
                     ),
                   ),
                 ),
