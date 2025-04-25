@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Preview;
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:mrz_scanner/src/camera_overlay_widget.dart';
 import 'package:mrz_scanner/src/extensions/mlkit_extension.dart';
@@ -48,12 +48,16 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
           sensorConfig:
               SensorConfig.single(aspectRatio: CameraAspectRatios.ratio_16_9),
           saveConfig: SaveConfig.photo(),
-          builder: (CameraState state, Preview preview) => state.when(
-            onPhotoMode: (photoCameraState) => CameraOverlayWidget(
-              photoCameraState: photoCameraState,
-              onPhotoCameraState: _setCameraStatet,
-            ),
-          ),
+          builder: (state, preview) {
+            return state.when(
+              onPhotoMode: (photoCameraState) => CameraOverlayWidget(
+                photoCameraState: photoCameraState,
+                onPhotoCameraState: _setCameraStatet,
+              ),
+              onVideoMode: (_) => const SizedBox.shrink(),
+              onPreparingCamera: (state) => const SizedBox.shrink(),
+            );
+          },
         ),
         Positioned(
           top: 40, // Adjust the top position as needed
