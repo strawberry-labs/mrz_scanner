@@ -4,7 +4,7 @@ version: 1.0.0
 homepage:
 
 environment:
-  sdk: '>=3.3.4 <4.0.0'
+  sdk: ">=3.3.4 <4.0.0"
   flutter: ">=1.17.0"
 
 dependencies:
@@ -12,8 +12,8 @@ dependencies:
     sdk: flutter
   camerawesome: ^2.0.1
   cupertino_icons: ^1.0.6
-  google_mlkit_text_recognition: 0.10.0
-  google_mlkit_commons: 0.5.0
+  google_mlkit_text_recognition: 0.15.0
+  google_mlkit_commons: 0.11.0
 
 dev_dependencies:
   flutter_test:
