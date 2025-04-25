@@ -3,6 +3,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:mrz_scanner/src/models/mrz_parser.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:mrz_scanner/src/utils/image_utils.dart';
 
 class ProcessTextImage {
   static final textRecognizer =
@@ -15,9 +16,10 @@ class ProcessTextImage {
       RegExp(r"(\d{6})(\d)([MFX<])(\d{6})(\d)([A-Z]{3})([A-Z0-9<]{11})(\d)");
   static final thirdLineRegex = RegExp(r"([A-Z0-9<]{30})");
 
-  Future<String?> firstDetectingProcess(
-    RecognizedText recognizedText,
-  ) async {
+  Future<String?> firstDetectingProcess({
+    required RecognizedText recognizedText,
+    required InputImage originalImage,
+  }) async {
     try {
       debugPrint("I AM IN firstDetectingProcess");
       final lines = recognizedText.blocks
@@ -46,10 +48,22 @@ class ProcessTextImage {
 
             if (errors.isEmpty) {
               debugPrint("\n✓ MRZ validation successful!");
+
+              // Compress and encode image to base64 using the utility function
+              String? imageBase64;
+              try {
+                imageBase64 = await inputImageToBase64(originalImage);
+                debugPrint(
+                    "\n✓ Image compressed and converted to base64 successfully!");
+              } catch (e) {
+                debugPrint("\n✗ Failed to compress/encode image: $e");
+              }
+
               return jsonEncode({
                 'line1': line1,
                 'line2': line2,
                 'line3': line3,
+                'imageBase64': imageBase64,
                 'parsedData': {
                   'documentType': mrz.documentType,
                   'countryCode': mrz.countryCode,

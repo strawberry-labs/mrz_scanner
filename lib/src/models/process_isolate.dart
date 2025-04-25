@@ -82,7 +82,10 @@ class ProcessIsolate {
       debugPrint("Isolate process: START SCANNING");
       textRecognizer.processImage(message).then((recognizedText) {
         debugPrint("\n\n---------------------${recognizedText.text}");
-        _processTextImage.firstDetectingProcess(recognizedText).then((result) {
+        _processTextImage
+            .firstDetectingProcess(
+                recognizedText: recognizedText, originalImage: message)
+            .then((result) {
           debugPrint("Isolate process: result $result");
           sendPort.send(result);
         }).catchError((onError) {
