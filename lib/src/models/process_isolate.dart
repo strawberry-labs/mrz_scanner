@@ -5,11 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:mrz_scanner/src/models/process_text_image.model.dart';
+import 'package:mrz_scanner/src/mrz_navigator.dart';
+import 'package:vibration/vibration.dart';
 
 final ProcessTextImage _processTextImage = ProcessTextImage();
 
+class ImageWithScanMode {
+  final InputImage image;
+  final ScanMode scanMode;
+  final bool enableVibration;
+  
+  ImageWithScanMode({
+    required this.image, 
+    required this.scanMode,
+    this.enableVibration = true,
+  });
+}
+
 class ProcessIsolate {
   bool isProcessing = false;
+  bool enableVibration = true;
   final ReceivePort _receivePort = ReceivePort();
   SendPort? _sendPort;
   Isolate? _isolate;
@@ -38,17 +53,26 @@ class ProcessIsolate {
         _sendPort = message;
       } else if (message is String) {
         debugPrint("Received MRZ result: $message");
-        HapticFeedback.mediumImpact();
+        if (enableVibration) {
+          Vibration.vibrate(duration: 200);
+          debugPrint("Vibration triggered on scan completion");
+        } else {
+          debugPrint("Vibration disabled - skipping vibration");
+        }
         resultController.add(message);
       }
       isProcessing = false;
     });
   }
 
-  void sendImage(InputImage image) {
+  void sendImage(InputImage image, ScanMode scanMode) {
     if (!isProcessing && _sendPort != null) {
       isProcessing = true;
-      _sendPort?.send(image);
+      _sendPort?.send(ImageWithScanMode(
+        image: image, 
+        scanMode: scanMode,
+        enableVibration: enableVibration,
+      ));
     }
   }
 
@@ -71,18 +95,23 @@ class ProcessIsolate {
     sendPort.send(receivePort.sendPort);
 
     isolateBSubscription = receivePort.listen((dynamic message) {
-      if (message is InputImage) {
+      if (message is ImageWithScanMode) {
         _processImage(sendPort, message);
       }
     });
   }
 
-  static void _processImage(SendPort sendPort, InputImage message) {
+  static void _processImage(SendPort sendPort, ImageWithScanMode message) {
     try {
-      debugPrint("Isolate process: START SCANNING");
-      textRecognizer.processImage(message).then((recognizedText) {
+      debugPrint("Isolate process: START SCANNING - Mode: ${message.scanMode.name}");
+      textRecognizer.processImage(message.image).then((recognizedText) {
         debugPrint("\n\n---------------------${recognizedText.text}");
-        _processTextImage.firstDetectingProcess(recognizedText).then((result) {
+        _processTextImage
+            .firstDetectingProcess(
+                recognizedText: recognizedText, 
+                originalImage: message.image,
+                scanMode: message.scanMode)
+            .then((result) {
           debugPrint("Isolate process: result $result");
           sendPort.send(result);
         }).catchError((onError) {

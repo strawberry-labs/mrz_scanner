@@ -1,3 +1,4 @@
+import 'dart:io' show Platform; // Import for platform checking
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 
@@ -35,8 +36,27 @@ extension MLKitUtils on AnalysisImage {
     })!;
   }
 
-  InputImageRotation get inputImageRotation =>
-      InputImageRotation.values.byName(rotation.name);
+  /// Corrects the rotation for iOS and provides a consistent value to ML Kit.
+  InputImageRotation get inputImageRotation {
+    // On iOS, the camera orientation is rotated by 90 degrees compared to Android.
+    // We need to apply a correction to normalize the rotation value.
+    if (Platform.isIOS) {
+      // Add 90 degrees to the reported rotation on iOS.
+      switch (rotation) {
+        case InputAnalysisImageRotation.rotation0deg:
+          return InputImageRotation.rotation90deg;
+        case InputAnalysisImageRotation.rotation90deg:
+          return InputImageRotation.rotation180deg;
+        case InputAnalysisImageRotation.rotation180deg:
+          return InputImageRotation.rotation270deg;
+        case InputAnalysisImageRotation.rotation270deg:
+          return InputImageRotation.rotation0deg;
+      }
+    }
+
+    // For Android, the rotation is already correct.
+    return InputImageRotation.values.byName(rotation.name);
+  }
 
   InputImageFormat get inputImageFormat {
     switch (format) {
