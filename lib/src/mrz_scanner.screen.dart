@@ -1,21 +1,30 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Preview;
+import 'package:flutter/services.dart';
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:mrz_scanner/src/camera_overlay_widget.dart';
 import 'package:mrz_scanner/src/extensions/mlkit_extension.dart';
 import 'package:mrz_scanner/src/models/process_isolate.dart';
 import 'package:mrz_scanner/src/models/process_text_image.model.dart';
+import 'package:mrz_scanner/src/mrz_navigator.dart';
 
 class MRZScannerScreen extends StatefulWidget {
-  const MRZScannerScreen({super.key});
+  final ScanMode scanMode;
+  final bool enableVibration;
+  
+  const MRZScannerScreen({
+    super.key,
+    this.scanMode = ScanMode.back,
+    this.enableVibration = true,
+  });
 
   @override
   State<MRZScannerScreen> createState() => _MRZScannerScreenState();
 }
 
 class _MRZScannerScreenState extends State<MRZScannerScreen> {
-  final _imageStreamController = StreamController<AnalysisImage>();
+  final _imageStreamController = StreamController<AnalysisImage>.broadcast();
   StreamSubscription<AnalysisImage>? processImageSubscription;
   StreamSubscription<String>? resultListener;
   PhotoCameraState? cameraState;
@@ -26,12 +35,28 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
   @override
   void dispose() {
     _cleanupResources();
+    // Re-enable all orientations when leaving the screen
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    // Lock orientation for a consistent scanning experience
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+    ]);
+    
+    // Set vibration preference
+    processIsolate.enableVibration = widget.enableVibration;
+    
     processIsolate.createIsolate();
     _analysisImageStream();
     _resultListener();
@@ -43,7 +68,11 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
         body: Stack(
       children: [
         CameraAwesomeBuilder.custom(
-          onImageForAnalysis: (img) async => _imageStreamController.add(img),
+          onImageForAnalysis: (img) async {
+            if (!_imageStreamController.isClosed) {
+              _imageStreamController.add(img);
+            }
+          },
           imageAnalysisConfig: AnalysisConfig(maxFramesPerSecond: 5),
           sensorConfig:
               SensorConfig.single(aspectRatio: CameraAspectRatios.ratio_16_9),
@@ -53,6 +82,7 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
               onPhotoMode: (photoCameraState) => CameraOverlayWidget(
                 photoCameraState: photoCameraState,
                 onPhotoCameraState: _setCameraStatet,
+                scanMode: widget.scanMode,
               ),
               onVideoMode: (_) => const SizedBox.shrink(),
               onPreparingCamera: (state) => const SizedBox.shrink(),
@@ -75,7 +105,7 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -115,9 +145,9 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 4,
-                    offset: Offset(0, 2),
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -142,8 +172,10 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
   }
 
   void _analysisImageStream() {
+    // Simplified: no more filtering logic needed
+    // The rotation is now corrected at the source in mlkit_extension.dart
     processImageSubscription = _imageStreamController.stream.listen((image) {
-      processIsolate.sendImage(image.toInputImage());
+      processIsolate.sendImage(image.toInputImage(), widget.scanMode);
     });
   }
 
@@ -151,19 +183,19 @@ class _MRZScannerScreenState extends State<MRZScannerScreen> {
     resultListener = processIsolate.resultListener().listen((mrzData) {
       // debugPrint("\n\n----------------------MRZ DATA $mrzData");
       _cleanupResources();
-      Navigator.pop(context, mrzData);
+      if (mounted) {
+        Navigator.pop(context, mrzData);
+      }
     });
   }
 
   void _cleanupResources() {
     processImageSubscription?.cancel();
     processIsolate.closeIsolate();
-    _imageStreamController.close();
-    processTextImage.dispose();
+    if (!_imageStreamController.isClosed) {
+      _imageStreamController.close();
+    }
+    // processTextImage.dispose(); // REMOVED: dispose method no longer exists
     resultListener?.cancel();
-  }
-
-  _onTakeError(onError) {
-    debugPrint("Take photo error $onError");
   }
 }
