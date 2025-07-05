@@ -1,4 +1,4 @@
-package com.example.example
+package com.chiragasarpota.mrzscanner
 
 import io.flutter.embedding.android.FlutterActivity
 
